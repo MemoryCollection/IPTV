@@ -7,3 +7,5 @@
 
 - https://wwqo.lanzouo.com/iTW1629kktlc
 - 密码:4ofa
+
+- 不能获取到域名下的频道列表，希望能升级一下
