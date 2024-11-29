@@ -242,14 +242,18 @@
             "ext": "./tvbox/json/bilibili.json"
         }
     ],
+
     "lives": [
         {
-            "name": "txt",
+            "name": "itv",
             "url": "./itvlist.txt",
-            "epg": "https://live.fanmingming.com/e.xml",
+            "ua":"okhttp/3.15",
+            "type": 0,
+            "epg":"http://epg.112114.xyz/?ch={name}&date={date}",
+            "logo": "https://raw.gitmirror.com/MemoryCollection/IPTV/main/TB/{name}.png",
             "playerType": 2,
-            "type": 2,
             "timeout": 3
         }
+
     ]
 }
