@@ -1,27 +1,29 @@
-    
-    两个组播搜索网站经常出问题，现在改成了搜索ip，用的quake的api，每个月都免费额度，个人使用是够了。
-    
-    新的测速改成了，只测速每个ip下面的4个频道。没有全部测速。
+itvlist.txt每9个小时测速一次，使用北京服务器测速
 
-    360quake的key去个人中心领取，没注册过的可以用的邀请码，咱们一人能有5000积分。
-    
-    邀请码：VfsXyg
-    
-    地址：quake.360.net
-    
-    普通账号每个月都有3000积分，可以搜索3000个ip我试了下，还是挺禁用的，每天也就消耗个几积分。
+个人使用效果还不错。
 
-
-不知道怎么找组播地址的，可以参考这个截图，自己手工替换下，我只截取了北京河北辽宁的。
-http://www.foodieguide.com/iptvsearch/hotellist.html
-
-![img.png](api/TB/multicastsearch.png)
+那个煞笔刷我流量
+![alt text](TB/image.png)
 
 ### 电视直播
     https://raw.gitmirror.com/MemoryCollection/IPTV/main/itvlist.txt
-
+### tvbox接口
+    https://raw.gitmirror.com/MemoryCollection/IPTV/main/tv.json
 
 ### 壳子
 - FongMi  https://tv.xn--yhqu5zs87a.top/
 - 影视仓 https://wwqo.lanzouo.com/iTW1629kktlc 密码:4ofa
-- 
+``
+### 酒店源搜索
+
+- http://tonkiang.us/?
+- http://www.foodieguide.com/iptvsearch/hoteliptv.php
+
+
+### 容器 
+
+容器安装了 python、chrome、selenium、和所需依赖，没有py文件
+```
+docker push  memorycollection/iptv:latest
+
+```
