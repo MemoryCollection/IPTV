@@ -1,5 +1,5 @@
 {
-    "spider": "./tvbox/spider.jar",
+    "spider": "./api/tvbox/spider.jar",
     "wallpaper": "http://like.xn--z7x900a.com/ppic/feimao.php",
     "logo": "https://like.xn--z7x900a.com/panda/0262.png",
     "sites": [
@@ -36,8 +36,8 @@
             "key": "追剧",
             "name": "⭐｜追更｜专区",
             "type": 3,
-            "api": "./tvbox/api/9121b57512b75f996d3122a424b04355.js",
-            "ext": "./tvbox/txt/9d68d4ce43a3ec0cf97ed4633f979e15.txt"
+            "api": "./api/tvbox/api/9121b57512b75f996d3122a424b04355.js",
+            "ext": "./api/tvbox/txt/9d68d4ce43a3ec0cf97ed4633f979e15.txt"
         },
         {
             "key": "csp_SuBaiBai",
@@ -82,7 +82,7 @@
             "name": "🎃┃南瓜┃影视",
             "type": 3,
             "playerType": "2",
-            "api": "./tvbox/api/ng_open.js"
+            "api": "./api/tvbox/api/ng_open.js"
         },
         {
             "key": "csp_Tvyb",
@@ -103,7 +103,7 @@
             "name": "💖┃Ivdy┃影视",
             "type": 3,
             "api": "csp_XBPQ",
-            "ext": "./tvbox/json/ivdy.json",
+            "ext": "./api/tvbox/json/ivdy.json",
             "searchable": 0
         },
         {
@@ -196,15 +196,15 @@
             "name": "🛣┃低端┃影视",
             "type": 3,
             "playerType": "2",
-            "api": "./tvbox/api/drpy2.min.js",
-            "ext": "./tvbox/js/ddys.js"
+            "api": "./api/tvbox/api/drpy2.min.js",
+            "ext": "./api/tvbox/js/ddys.js"
         },
         {
             "key": "虎虎",
             "name": "🐯┃虎虎┃影视",
             "type": 3,
             "api": "csp_XBPQ",
-            "ext": "./tvbox/json/虎虎.json"
+            "ext": "./api/tvbox/json/虎虎.json"
         },
         {
             "key": "csp_SP360",
@@ -217,21 +217,21 @@
             "name": "🌖┃米搜┃网盘",
             "type": 3,
             "api": "csp_MiSou",
-            "ext": "./tvbox/txt/kk.txt"
+            "ext": "./api/tvbox/txt/kk.txt"
         },
         {
             "key": "csp_Pansou",
             "name": "🚢┃盘搜┃网盘",
             "type": 3,
             "api": "csp_Pansou",
-            "ext": "./tvbox/txt/token.txt"
+            "ext": "./api/tvbox/txt/token.txt"
         },
         {
             "key": "csp_PanSearch",
             "name": "🚃┃盘搜┃网盘",
             "type": 3,
             "api": "csp_PanSearch",
-            "ext": "./tvbox/txt/token.txt"
+            "ext": "./api/tvbox/txt/token.txt"
         },
         {
             "key": "drpy_哔哩",
@@ -239,7 +239,7 @@
             "type": 3,
             "api": "csp_Bili",
             "playerType": 1,
-            "ext": "./tvbox/json/bilibili.json"
+            "ext": "./api/tvbox/json/bilibili.json"
         }
     ],
 
@@ -250,7 +250,7 @@
             "ua":"okhttp/3.15",
             "type": 0,
             "epg":"http://epg.112114.xyz/?ch={name}&date={date}",
-            "logo": "https://raw.gitmirror.com/MemoryCollection/IPTV/api/TB/{name}.png",
+            "logo": "./api/TB/{name}.png",
             "playerType": 2,
             "timeout": 3
         }
