@@ -57,7 +57,33 @@ def clean_channel_name(name: str) -> str:
         # 移除所有非单词字符并转为大写（保留汉字）
         name = re.sub(r'[^\w]', '', name).upper()
         
-        replacements = {
+        # 第一阶段：处理数字和符号替换
+        digit_replacements = {
+            "十七": "17",
+            "十六": "16",
+            "十五": "15",
+            "十四": "14",
+            "十三": "13",
+            "十二": "12",
+            "十一": "11",
+            "十": "10",
+            "一": "1",
+            "二": "2",
+            "三": "3",
+            "四": "4",
+            "五": "5",
+            "六": "6",
+            "七": "7",
+            "八": "8",
+            "九": "9",
+            "＋": "+",
+            "—": "",
+        }
+        # 按键长度降序排序，优先处理长数字（如“十一”在“十”之前）
+        for old, new in sorted(digit_replacements.items(), key=lambda x: (-len(x[0]), x[0])):
+            name = name.replace(old, new)
+        
+        other_replacements = {
             "上海东方卫视": "东方卫视",
             "上海卫视": "东方卫视",
             "中央": "CCTV",
@@ -77,7 +103,7 @@ def clean_channel_name(name: str) -> str:
             "CCTV7军农": "CCTV7",
             "CCTV7军事": "CCTV7",
             "CCTV17农业农村": "CCTV17",
-            "CCTV17军农": "CCTV17",  # 修正错误替换
+            "CCTV17军农": "CCTV17",
             "CCTV17农业": "CCTV17",
             "CCTV8电视剧": "CCTV8",
             "CCTV9纪录": "CCTV9",
@@ -99,8 +125,6 @@ def clean_channel_name(name: str) -> str:
             "动作电影": "CHC动作电影",
             "家庭电影": "家庭影院",
             "PLUS": "+",
-            "＋": "+",
-            "—": "",
             "高清": "",
             "超高": "",
             "HD": "",
@@ -108,36 +132,17 @@ def clean_channel_name(name: str) -> str:
             "频道": "",
             "台": "",
             "套": "",
-            "第1": "1",  # 调整替换逻辑
-            "十一": "11",
-            "十二": "12",
-            "十三": "13",
-            "十四": "14",
-            "十五": "15",
-            "十六": "16",
-            "十七": "17",
-            "十八": "18",
-            "十九": "19",
-            "二十": "20",  # 新增两位数处理
-            "一": "1",
-            "二": "2",
-            "三": "3",
-            "四": "4",
-            "五": "5",
-            "六": "6",
-            "七": "7",
-            "八": "8",
-            "九": "9",
-            "十": "10",
+            "第1": "1",
             "CCTVCCTV": "CCTV",
             "CHCCHC": "CHC",
             "移动": "",
+            "CHC电影":"CHC高清电影"
         }
-        
-        # 按替换键长度降序排序，优先处理长字符串
-        for old, new in sorted(replacements.items(), key=lambda x: -len(x[0])):
+        # 按键长度降序处理其他规则
+        for old, new in sorted(other_replacements.items(), key=lambda x: (-len(x[0]), x[0])):
             name = name.replace(old, new)
-            
+        if name == "家庭影院":
+            name = "CHC家庭影院"
         return name
     except Exception as e:
         print(f"清理频道名称时出错: {e}")
