@@ -121,8 +121,6 @@ def clean_channel_name(name: str) -> str:
             "4川卫视": "四川卫视",
             "广东大湾区卫视": "大湾区卫视",
             "内蒙古卫视": "内蒙卫视",
-            "CHC电影": "CHC高清电影",
-            "动作电影": "CHC动作电影",
             "家庭电影": "家庭影院",
             "PLUS": "+",
             "高清": "",
@@ -135,14 +133,17 @@ def clean_channel_name(name: str) -> str:
             "第1": "1",
             "CCTVCCTV": "CCTV",
             "CHCCHC": "CHC",
-            "移动": "",
-            "CHC电影":"CHC高清电影"
+            "移动": ""
         }
         # 按键长度降序处理其他规则
-        for old, new in sorted(other_replacements.items(), key=lambda x: (-len(x[0]), x[0])):
-            name = name.replace(old, new)
+        if "高清电影" not in name:
+            for old, new in sorted(other_replacements.items(), key=lambda x: (-len(x[0]), x[0])):
+                name = name.replace(old, new)
         if name == "家庭影院":
             name = "CHC家庭影院"
+        if name == "动作电影":
+            name = "CHC动作电影"
+
         return name
     except Exception as e:
         print(f"清理频道名称时出错: {e}")
@@ -300,7 +301,7 @@ def classify_and_sort(data: Dict) -> Dict:
     channel_keywords = {
         '中央频道': {'CCTV'},
         '卫视频道': {'卫视', '凤凰'},
-        '影视剧场': {'CHC', '相声小品', '热播剧场', '经典电影', '谍战剧场', '家庭影院', '动作电影'}
+        '影视剧场': {'CHC', '相声小品', '热播剧场', '经典电影', '谍战剧场', '家庭影院', '动作电影','亚洲电影'}
     }
 
     groups = {
