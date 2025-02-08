@@ -90,7 +90,7 @@ def get_m3u8_info(m3u8_url):
 def update_json_file(new_data: Dict, key: str = 'hotel') -> None:
     file_path = 'data/iptv.json'
     try:
-        existing_data = read_json_file(file_path)
+        existing_data = read_json_file()
         existing_data[key] = new_data
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         with open(file_path, 'w', encoding='utf-8') as f:
