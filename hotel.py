@@ -1,23 +1,94 @@
 import requests
+import m3u8
+import time
+from urllib.parse import urljoin
+from io import BytesIO
+import av
 import re
 import os
 import json
-import time
-import m3u8
 from concurrent.futures import ThreadPoolExecutor
-import random
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Optional
 
-def make_request(url: str, method: str = 'get', headers: Optional[Dict] = None, json_data: Optional[Dict] = None, timeout: int = 10) -> Optional[Dict]:
+session = requests.Session()
+session.headers.update({
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+    'Accept-Encoding': 'gzip, deflate',
+    'Accept-Language': 'zh-CN,zh;q=0.9',
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache',
+    'Upgrade-Insecure-Requests': '1'
+})
+
+
+def analyze_video_resolution(content):
+    """使用PyAV库分析视频分辨率"""
     try:
-        response = requests.request(method, url, headers=headers, json=json_data, timeout=timeout)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        print(f"请求异常: {e}")
-        return None
+        buffer = BytesIO(content)
+        with av.open(buffer, format='mpegts') as container:
+            for stream in container.streams:
+                if stream.type == 'video':
+                    return (stream.width, stream.height)
+            return "0x0"
+    except Exception:
+        return "0x0"
 
-def update_json_file(file_path: str, new_data: Dict, key: str = 'hotel_channels') -> None:
+
+def get_m3u8_info(m3u8_url):
+    """获取m3u8分片信息和视频参数"""
+    try:
+        # 获取m3u8文件内容
+        response = session.get(m3u8_url, timeout=2)
+        response.raise_for_status()
+        playlist = m3u8.loads(response.text)
+
+        if not playlist.segments:
+            return 0, "0x0"
+
+        # 获取第一个分片URL
+        first_segment = playlist.segments[0]
+        segment_url = urljoin(m3u8_url, first_segment.uri)
+
+        # 尝试获取分片时长
+        segment_duration = first_segment.duration
+        if segment_duration is None:
+            segment_duration = 10  # 默认时长为10秒
+
+        # 计算2秒数据的大致字节数
+        start_time = time.time()
+        try:
+            # 发送HEAD请求获取分片大小
+            head_response = session.head(segment_url, timeout=2)
+            head_response.raise_for_status()
+            segment_size = int(head_response.headers.get('Content-Length', 0))
+            data_to_download = int(segment_size * (2 / segment_duration))
+        except (requests.exceptions.RequestException, ValueError):
+            data_to_download = None
+
+        if data_to_download is not None:
+            headers = {'Range': f'bytes=0-{data_to_download - 1}'}
+            seg_response = session.get(segment_url, headers=headers, timeout=2)
+        else:
+            seg_response = session.get(segment_url, timeout=2)
+        seg_response.raise_for_status()
+        download_time = time.time() - start_time
+
+        content = seg_response.content
+        file_size = len(content)
+
+        # 计算下载速度（MB/s）
+        speed_mbp = (file_size / (1024 ** 2)) / download_time if download_time > 0 else 0
+        # 获取分辨率
+        resolution = analyze_video_resolution(content)
+
+        return round(speed_mbp, 2), resolution
+    except requests.exceptions.RequestException:
+        return 0, "0x0"
+
+
+def update_json_file(new_data: Dict, key: str = 'hotel') -> None:
+    file_path = 'data/iptv.json'
     try:
         existing_data = read_json_file(file_path)
         existing_data[key] = new_data
@@ -27,24 +98,39 @@ def update_json_file(file_path: str, new_data: Dict, key: str = 'hotel_channels'
     except Exception as e:
         print(f"更新 JSON 文件时出错: {e}")
 
-def read_json_file(file_path: str) -> Dict:
+
+def read_json_file() -> Dict:
+    file_path = 'data/iptv.json'
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             return json.load(f)
-    except Exception as e:
+    except Exception:
         return {'hotel': [], 'hotel_channels': {}}
+
+
+def make_request(url: str, method: str = 'get', headers: Optional[Dict] = None, json_data: Optional[Dict] = None,
+                 timeout: int = 10) -> Optional[Dict]:
+    try:
+        response = session.request(method, url, headers=headers, json=json_data, timeout=timeout)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException:
+        return None
+
 
 def fetch_ips_360(query: str, size: int = 10) -> List[str]:
     token = os.getenv("TOKEN_360")
     if not token:
         print("请设置 TOKEN_360 环境变量")
         return []
-    
+
     headers = {"X-QuakeToken": token, "Content-Type": "application/json"}
-    data = {"query": query, "start": 0, "size": size, "ignore_cache": False, "latest": True, "shortcuts": ["610ce2adb1a2e3e1632e67b1"]}
-    
-    response = make_request(url="https://quake.360.net/api/v3/search/quake_service", method='post', headers=headers, json_data=data, timeout=10)
-    
+    data = {"query": query, "start": 0, "size": size, "ignore_cache": False, "latest": True,
+            "shortcuts": ["610ce2adb1a2e3e1632e67b1"]}
+
+    response = make_request(url="https://quake.360.net/api/v3/search/quake_service", method='post', headers=headers,
+                            json_data=data, timeout=10)
+
     if response:
         ip_data = response.get("data", [])
         urls = [f"{entry.get('ip')}:{entry.get('port')}" for entry in ip_data if entry.get('ip') and entry.get('port')]
@@ -52,11 +138,12 @@ def fetch_ips_360(query: str, size: int = 10) -> List[str]:
         return urls
     return []
 
+
 def clean_channel_name(name: str) -> str:
     try:
         # 移除所有非单词字符并转为大写（保留汉字）
         name = re.sub(r'[^\w]', '', name).upper()
-        
+
         # 第一阶段：处理数字和符号替换
         digit_replacements = {
             "十七": "17",
@@ -82,7 +169,7 @@ def clean_channel_name(name: str) -> str:
         # 按键长度降序排序，优先处理长数字（如“十一”在“十”之前）
         for old, new in sorted(digit_replacements.items(), key=lambda x: (-len(x[0]), x[0])):
             name = name.replace(old, new)
-        
+
         other_replacements = {
             "上海东方卫视": "东方卫视",
             "上海卫视": "东方卫视",
@@ -125,6 +212,7 @@ def clean_channel_name(name: str) -> str:
             "PLUS": "+",
             "高清": "",
             "超高": "",
+            "超清": "",
             "HD": "",
             "标清": "",
             "频道": "",
@@ -145,24 +233,14 @@ def clean_channel_name(name: str) -> str:
             name = "CHC动作电影"
 
         return name
-    except Exception as e:
-        print(f"清理频道名称时出错: {e}")
+    except Exception:
         return name
 
-def fetch_hotel_iptv(ip_list: List[str]) -> Dict:
-    session = requests.Session()
-    session.headers.update({
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-        'Accept-Encoding': 'gzip, deflate',
-        'Accept-Language': 'zh-CN,zh;q=0.9',
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache',
-        'Upgrade-Insecure-Requests': '1'
-    })
 
+def fetch_hotel_iptv(ip_list: List[str]) -> Dict:
     filter_keywords = {"4K", "测试", "奥林匹克", "NEWS", "台球", "网球", "足球", "指南", "教育", "高尔夫"}
-    results = {}
+    channels = []
+    hotel_s = []
     ip_list = set(ip_list)
 
     def fetch_single_ip(ip: str) -> None:
@@ -170,11 +248,12 @@ def fetch_hotel_iptv(ip_list: List[str]) -> Dict:
             response = session.get(f'http://{ip}/iptv/live/1000.json?key=txiptv', timeout=2)
             response.raise_for_status()
             data = response.json()
+            
         except requests.exceptions.RequestException:
             return
 
         if 'data' in data:
-            channels = []
+            hotel_s.append(ip)
             for channel in data['data']:
                 name = channel.get('name', '').upper()
                 if any(keyword in name for keyword in filter_keywords):
@@ -183,111 +262,15 @@ def fetch_hotel_iptv(ip_list: List[str]) -> Dict:
                 channel_url = f"http://{ip}{channel.get('url', '')}"
                 if "/tsfile/live/1015_1.m3u8?key=txiptv&playlive=1&authid=0" in channel_url:
                     name = "江苏卫视"
-                channels.append([name, channel_url, channel.get('typename', '')])
-
-            if channels:
-                results[ip] = {'data': channels}
-                print(f"获取 {ip} 成功，共 {len(channels)} 个频道")
+                if 'udp://@' not in channel_url:
+                    channels.append([name, channel_url])
 
     with ThreadPoolExecutor(max_workers=8) as executor:
         executor.map(fetch_single_ip, ip_list)
-    print(f"共获取 {len(results)} 个 IP 的 IPTV 频道")
-    return results
+    update_json_file(hotel_s, key='hotel')
+    print(f"共获取 {len(channels)} 个 IPTV 频道")
+    return channels
 
-def download_segment(url: str, duration: int = 5) -> float:
-    start_time = time.time()
-    try:
-        response = requests.get(url, timeout=duration, stream=True)
-        response.raise_for_status()
-
-        total_data = 0
-        for chunk in response.iter_content(chunk_size=1024*1024):
-            total_data += len(chunk)
-            if time.time() - start_time >= duration:
-                break
-
-        elapsed_time = time.time() - start_time
-        return total_data / (elapsed_time * 1024 * 1024) if elapsed_time > 0 else 0
-    except requests.exceptions.RequestException:
-        return 0
-
-def download_m3u8(url: str, duration: int = 10) -> float:
-    start_time = time.time()
-    try:
-        response = requests.get(url, timeout=duration)
-        response.raise_for_status()
-        m3u8_obj = m3u8.loads(response.text)
-
-        segment_urls = [seg.uri for seg in m3u8_obj.segments]
-        speeds = []
-
-        for segment_url in segment_urls:
-            if not segment_url.startswith("http"):
-                segment_url = url.rsplit('/', 1)[0] + '/' + segment_url
-            speed = download_segment(segment_url, duration=2)
-            speeds.append(speed)
-
-            if time.time() - start_time >= duration:
-                break
-
-        return sum(speeds) / len(speeds) if speeds else 0
-    except requests.exceptions.RequestException:
-        return 0
-
-def process_channel(channel: List, ip: str) -> tuple:
-    try:
-        name, url, typename = channel
-        channel_speed = download_m3u8(url, duration=2)
-        return name, channel_speed
-    except Exception as e:
-        print(f"处理通道时出错: {e}")
-        return channel[0], 0
-
-def calculate_ip_speed(ip: str, results: Dict, filtered_ip_list: List, filtered_channels: Dict) -> None:
-    if ip not in results:
-        return
-
-    channels = results[ip]['data']
-    target_channels = [channel for channel in channels if channel[0] in {'CCTV1', 'CCTV2', 'CCTV3'}]
-
-    if len(target_channels) < 3:
-        try:
-            target_channels = random.sample(channels, 3)
-        except Exception as e:
-            print(f"随机采样频道时出错: {e}")
-            return
-
-    speeds = []
-    with ThreadPoolExecutor(max_workers=8) as executor:
-        for name, channel_speed in executor.map(lambda channel: process_channel(channel, ip), target_channels):
-            if channel_speed > 0.2:
-                speeds.append(channel_speed)
-                if ip not in filtered_ip_list:
-                    filtered_ip_list.append(ip)
-
-    if speeds:
-        ip_speed = sum(speeds) / len(speeds)
-        print(f"{ip} 平均速度为 {ip_speed:.2f} MB/s")
-        filtered_channels[ip] = {'speed': round(ip_speed, 2), 'data': channels}
-
-def hotel_iptv(size: int = 10) -> Dict:
-    filtered_channels = {}
-    filtered_ip_list = []
-
-    query = '((favicon:"6e6e3db0140929429db13ed41a2449cb" OR favicon:"34f5abfd228a8e5577e7f2c984603144" )) AND country_cn: "中国"'
-    ip_list = fetch_ips_360(query, size)
-    existing_ips = read_json_file('data/iptv.json')['hotel']
-    ip_list = list(set(ip_list + existing_ips))
-
-    print(f"去重后还有： {len(ip_list)} 个 IP")
-    results = fetch_hotel_iptv(ip_list)
-
-    with ThreadPoolExecutor(max_workers=8) as executor:
-        executor.map(lambda ip: calculate_ip_speed(ip, results, filtered_ip_list, filtered_channels), results.keys())
-
-    update_json_file('data/iptv.json', filtered_channels, key='hotel_channels')
-    update_json_file('data/iptv.json', filtered_ip_list, key='hotel')
-    return filtered_channels
 
 def extract_cctv_number(name: str) -> float:
     if "CCTV" in name:
@@ -297,11 +280,12 @@ def extract_cctv_number(name: str) -> float:
         return float('inf')
     return float('inf')
 
-def classify_and_sort(data: Dict) -> Dict:
+
+def classify_and_sort(data: List[Dict]) -> Dict:
     channel_keywords = {
         '中央频道': {'CCTV'},
         '卫视频道': {'卫视', '凤凰'},
-        '影视剧场': {'CHC', '相声小品', '热播剧场', '经典电影', '谍战剧场', '家庭影院', '动作电影','亚洲电影'}
+        '影视剧场': {'CHC', '相声小品', '热播剧场', '经典电影', '谍战剧场', '家庭影院', '动作电影', '亚洲电影'}
     }
 
     groups = {
@@ -311,40 +295,80 @@ def classify_and_sort(data: Dict) -> Dict:
         '未分组': []
     }
 
-    for ip, info in data.items():
-        channels = info['data']
-        speed = info['speed']
+    for entry in data:
+        name = entry["name"]
+        url = entry.get("url", "")  # 假设原代码里后续能补充这里的 url 逻辑
+        speed = entry["speed"]
+        resolution = entry["resolution"]
 
-        for name, url, _ in channels:
-            found_group = False
-            for group_name, keywords in channel_keywords.items():
-                if any(keyword in name for keyword in keywords):
-                    groups[group_name].append((name, url, speed))
-                    found_group = True
-                    break
-            
-            if not found_group:
-                groups['未分组'].append((name, url, speed))
+        found_group = False
+        for group_name, keywords in channel_keywords.items():
+            if any(keyword in name for keyword in keywords):
+                groups[group_name].append((name, url, speed, resolution))
+                found_group = True
+                break
+
+        if not found_group:
+            groups['未分组'].append((name, url, speed, resolution))
+
+    def custom_sort_key(item):
+        name = item[0]
+        resolution_str = item[3]
+        speed = item[2]
+        try:
+            width, height = map(int, resolution_str.split('x'))
+            resolution = width * height
+        except ValueError:
+            resolution = 0
+        cctv_num = extract_cctv_number(name)
+        return (cctv_num if "CCTV" in name else float('inf'), name, -resolution, -speed)
 
     for group_name, channel_list in groups.items():
-        channel_list.sort(key=lambda x: (x[0], -x[2]))
-
-        if group_name == '中央频道':
-            channel_list.sort(key=lambda x: (extract_cctv_number(x[0]), x[0], -x[2]))
+        channel_list.sort(key=custom_sort_key)
 
     with open("hotel.txt", 'w', encoding='utf-8') as file:
         for group_name, channel_list in groups.items():
             file.write(f"{group_name},#genre#\n")
-            for name, url, speed in channel_list:
-                name = name.replace("CCTVCCTV", "CCTV")
-                file.write(f"{name},{url},{speed}\n")
+            for name, url, speed, resolution in channel_list:
+                if speed > 0.3:  # 速度过滤
+                    name = name.replace("CCTVCCTV", "CCTV")
+                    file.write(f"{name},{url},{speed},{resolution}\n")
             file.write("\n")
-            
+
     return groups
 
-if __name__ == "__main__":
-    ip_list = hotel_iptv(20)
-    if ip_list:
-        classify_and_sort(read_json_file('data/iptv.json')['hotel_channels'])
+
+def process_iptv(iptv):
+    global processed_count, iptv_m
+    processed_count += 1
+    
+    name, url = iptv
+    speed, resolution = get_m3u8_info(url)
+    if resolution:
+        resolution_str = f"{resolution[0]}x{resolution[1]}"
     else:
-        print("未获取到有效的 IP 列表")
+        resolution_str = '0x0'
+    print(f"第 {processed_count}/{iptv_m} 个 IPTV 频道: {name} - {speed} MB/s - {resolution_str}")
+    return {
+        "name": name,
+        "url": url,
+        "speed": speed,
+        "resolution": resolution_str
+    }
+
+
+if __name__ == '__main__':
+    global iptv_m,processed_count
+    # 360IP搜索
+    query = '((favicon:"6e6e3db0140929429db13ed41a2449cb" OR favicon:"34f5abfd228a8e5577e7f2c984603144" )) AND country_cn: "中国"'
+    existing_ips = read_json_file()['hotel']
+    ip_list = list(set(fetch_ips_360(query, size=10) + existing_ips))
+    print(f"合并后共获取 {len(ip_list)} 个 IP 地址")
+    iptv_list = fetch_hotel_iptv(ip_list)
+    iptv_m = len(iptv_list)
+    processed_count = 0
+    with ThreadPoolExecutor(max_workers=16) as executor:
+        iptv_list_dict = list(executor.map(process_iptv, iptv_list))
+
+    result = classify_and_sort(iptv_list_dict)
+    print("IPTV 信息处理完成")
