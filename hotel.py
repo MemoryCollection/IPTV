@@ -221,7 +221,10 @@ def clean_channel_name(name: str) -> str:
             "第1": "1",
             "CCTVCCTV": "CCTV",
             "CHCCHC": "CHC",
-            "移动": ""
+            "移动": "",
+            "K2":"",
+            "K1":"",
+            "B2":""
         }
         # 按键长度降序处理其他规则
         if "高清电影" not in name:
@@ -239,6 +242,7 @@ def clean_channel_name(name: str) -> str:
 
 def fetch_hotel_iptv(ip_list: List[str]) -> Dict:
     filter_keywords = {"4K", "测试", "奥林匹克", "NEWS", "台球", "网球", "足球", "指南", "教育", "高尔夫"}
+    keywords = {'CCTV','卫视','凤凰', 'CHC', '相声小品', '热播剧场', '经典电影', '谍战剧场', '家庭影院', '动作电影', '亚洲电影'}
     channels = []
     hotel_s = []
     ip_list = set(ip_list)
@@ -258,12 +262,14 @@ def fetch_hotel_iptv(ip_list: List[str]) -> Dict:
                 name = channel.get('name', '').upper()
                 if any(keyword in name for keyword in filter_keywords):
                     continue
-                name = clean_channel_name(name)
-                channel_url = f"http://{ip}{channel.get('url', '')}"
-                if "/tsfile/live/1015_1.m3u8?key=txiptv&playlive=1&authid=0" in channel_url:
-                    name = "江苏卫视"
-                if 'udp://@' not in channel_url:
-                    channels.append([name, channel_url])
+                if any(keyword in name for keyword in keywords):
+                    
+                    name = clean_channel_name(name)
+                    channel_url = f"http://{ip}{channel.get('url', '')}"
+                    if "/tsfile/live/1015_1.m3u8?key=txiptv&playlive=1&authid=0" in channel_url:
+                        name = "江苏卫视"
+                    if 'udp://@' not in channel_url:
+                        channels.append([name, channel_url])
 
     with ThreadPoolExecutor(max_workers=8) as executor:
         executor.map(fetch_single_ip, ip_list)
@@ -339,16 +345,13 @@ def classify_and_sort(data: List[Dict]) -> Dict:
 
 
 def process_iptv(iptv):
-    global processed_count, iptv_m
-    processed_count += 1
-    
+
     name, url = iptv
     speed, resolution = get_m3u8_info(url)
     if resolution:
         resolution_str = f"{resolution[0]}x{resolution[1]}"
     else:
         resolution_str = '0x0'
-    print(f"第 {processed_count}/{iptv_m} 个 IPTV 频道: {name} - {speed} MB/s - {resolution_str}")
     return {
         "name": name,
         "url": url,
@@ -358,7 +361,6 @@ def process_iptv(iptv):
 
 
 if __name__ == '__main__':
-    global iptv_m,processed_count
     # 360IP搜索
     query = '((favicon:"6e6e3db0140929429db13ed41a2449cb" OR favicon:"34f5abfd228a8e5577e7f2c984603144" )) AND country_cn: "中国"'
     existing_ips = read_json_file()['hotel']
@@ -367,8 +369,16 @@ if __name__ == '__main__':
     iptv_list = fetch_hotel_iptv(ip_list)
     iptv_m = len(iptv_list)
     processed_count = 0
-    with ThreadPoolExecutor(max_workers=16) as executor:
-        iptv_list_dict = list(executor.map(process_iptv, iptv_list))
+    all_iptv_list_dict = []  
 
-    result = classify_and_sort(iptv_list_dict)
+    batch_size = 10
+    for i in range(0, len(iptv_list), batch_size):
+        batch = iptv_list[i:i+batch_size]
+        with ThreadPoolExecutor(max_workers=batch_size) as executor:
+            batch_iptv_list_dict = list(executor.map(process_iptv, batch))
+        all_iptv_list_dict.extend(batch_iptv_list_dict)
+        processed_count += len(batch)  # 更新已处理的数量
+        print (f"已处理 {processed_count}/{iptv_m} 个 IPTV 频道")
+
+    result = classify_and_sort(all_iptv_list_dict)
     print("IPTV 信息处理完成")
