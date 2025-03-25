@@ -5,7 +5,7 @@ on:
 
 jobs:
   build-and-push:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
       # 检出仓库代码
@@ -26,9 +26,13 @@ jobs:
       # 构建 Docker 镜像
       - name: Build Docker Image
         run: |
-          docker buildx build --platform windows/amd64 -t memorycollection/wcf:latest -f wcf/Dockerfile . --load
+          $imageTag = "memorycollection/wcf:${{ github.sha }}"
+          docker buildx build --platform windows/amd64 -t $imageTag -f wcf/Dockerfile . --load
+          Write-Host "Built Docker image: $imageTag"
 
       # 推送 Docker 镜像到 Docker Hub
       - name: Push Docker Image
         run: |
-          docker push memorycollection/wcf:latest
+          $imageTag = "memorycollection/wcf:${{ github.sha }}"
+          docker push $imageTag
+          Write-Host "Pushed Docker image: $imageTag"
