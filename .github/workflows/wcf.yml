@@ -19,12 +19,16 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      # 设置 buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
       # 构建 Docker 镜像
       - name: Build Docker Image
         run: |
-          docker build -t memorycollection/wcf:latest -f wcf/Dockerfile .
+          docker buildx build --platform windows/amd64 -t memorycollection/wcf:latest -f wcf/Dockerfile . --load
 
       # 推送 Docker 镜像到 Docker Hub
       - name: Push Docker Image
         run: |
-          docker push memorycollection/wcf:latest    
+          docker push memorycollection/wcf:latest
