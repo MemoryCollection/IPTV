@@ -4,12 +4,6 @@ FROM mcr.microsoft.com/windows/servercore:ltsc2019
 # 设置工作目录
 WORKDIR /app
 
-# 安装 Git
-RUN powershell -Command \
-    $ErrorActionPreference = 'Stop'; \
-    Invoke-WebRequest -Uri "https://github.com/git-for-windows/git/releases/download/v2.41.0.windows.2/Git-2.41.0.2-64-bit.exe" -OutFile "git-installer.exe"; \
-    Start-Process .\git-installer.exe -ArgumentList '/VERYSILENT /NORESTART /NOCANCEL /SP- /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS' -NoNewWindow -Wait; \
-    Remove-Item -Force git-installer.exe
 
 # 安装 Python 3.9
 RUN powershell -Command \
