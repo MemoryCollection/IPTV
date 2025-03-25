@@ -1,5 +1,4 @@
-name: Build and Push Docker Image
-
+name: Biptv
 on:
   workflow_dispatch:  # 允许手动启动
 
